@@ -175,10 +175,10 @@ export class DrawUtils{
     StyleUtils.setStyleByGlobal(style);
   }
   //绘制所有图形
-  static drawAll(graphics : Map<string,IGraphics>): void{
-    graphics.forEach(item => {
+  static drawAll(graphics : Iterable<IGraphics>): void{
+    for(const item of graphics){
         item.draw();
-    });
+    }
   }
   //绘制无限网格线
   static drawInfiniteGrid(gridSize: number = 50) {

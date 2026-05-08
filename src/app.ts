@@ -16,6 +16,7 @@ export let stage: Stage | null = null;
 //舞台类，单例模式
 export class Stage {
     elementMap: Map<string,IElement>;  //图形对象Map，key为图形id，value为图形对象
+    elementOrder: string[];  //图层顺序，数组前端为底层，数组末端为顶层
     assistMap: Map<string,IElement>;  //辅助图形对象Map，key为辅助图形id，value为辅助图形对象
     selected: IElement|null;  //当前选中的图形对象或容器对象，初始为null
     backgroundConfig: IBackgroundConfig;  //背景配置
@@ -27,6 +28,7 @@ export class Stage {
     
     private constructor(){
         this.elementMap = new Map();
+        this.elementOrder = [];
         this.assistMap = new Map();
         this.selected = null;
         this.backgroundConfig = {};
@@ -78,7 +80,7 @@ export class Stage {
                 const memento: ISnapshoot = JSON.parse(config.snapshootStr);
                 Global.setViewport(memento.viewport);
                 const initMemento = new StateMemento(memento.elementSnapshoots,MementoTitle.Init);
-                stage.elementMap = initMemento.getGraphicsMap();
+                stage.restoreFromMemento(initMemento);
                 mementoAdim.addMemento(initMemento);  //添加初始状态备忘录
             }else{
                 mementoAdim.addMemento(new StateMemento([],MementoTitle.Init));  //添加初始状态备忘录
@@ -91,6 +93,58 @@ export class Stage {
             return null;
         }
         
+    }
+    /**
+     * 从备忘录中恢复图元表和图层顺序
+     * @param memento 备忘录
+     */
+    private restoreFromMemento(memento: StateMemento): void {
+        const {elementMap, elementOrder} = memento.getGraphicsData();
+        this.elementMap = elementMap;
+        this.elementOrder = elementOrder;  
+    }
+    /**
+     * 按图层绘制顺序获取图元，数组前端先绘制
+     * @returns
+     */
+    getElementsInDrawOrder(): IElement[] {
+        return this.elementOrder.map(id => this.elementMap.get(id)) as IElement[];
+    }
+    getElementsInHitOrder(): IElement[] {  //按命中检测顺序获取图元，顶层图元优先响应事件
+        return [...this.getElementsInDrawOrder()].reverse();
+    }
+    forEachElementInDrawOrder(callback: (element: IElement) => void): void {  //按绘制顺序遍历图元
+        this.getElementsInDrawOrder().forEach(callback);
+    }
+    forEachElementInHitOrder(callback: (element: IElement) => void): void {  //按事件命中顺序遍历图元
+        this.getElementsInHitOrder().forEach(callback);
+    }
+    private removeElementOrder(id: string): void {  //从图层顺序中移除指定图元id
+        this.elementOrder = this.elementOrder.filter(item => item !== id);
+    }
+    private insertElementOrder(id: string, index?: number): void {  //将图元id插入指定层级，默认置于顶层
+        this.removeElementOrder(id);
+        if(index === undefined || index < 0 || index >= this.elementOrder.length){
+            this.elementOrder.push(id);
+            return;
+        }
+        this.elementOrder.splice(index, 0, id);
+    }
+    private getMaxLayerIndex(elements: IElement[]): number | undefined {  //获取一组图元中最高的现有层级索引
+        let maxIndex = -1;
+        elements.forEach(element => {
+            const index = this.elementOrder.indexOf(element.id);
+            if(index > maxIndex) maxIndex = index;
+        });
+        return maxIndex === -1 ? undefined : maxIndex;
+    }
+    private getLayerInsertIndex(previousOrder: string[], layerIndex?: number, insertedId?: string): number | undefined {  //根据删除前顺序换算当前可用的插入索引
+        if(layerIndex === undefined) return undefined;
+        return this.elementOrder.filter(id => {
+            if(id === insertedId) return false;
+            const previousIndex = previousOrder.indexOf(id);
+            return previousIndex !== -1 && previousIndex <= layerIndex;
+        }).length;
     }
     private cancelDefaultEvent(){
         Global.canvas.addEventListener(EventType.Wheel, (e) => e.preventDefault()); // 取消滚动默认行为
@@ -304,8 +358,8 @@ export class Stage {
                 if (!(e instanceof MouseEvent)) return;
 
                 let vis = false;
-                this.elementMap.forEach(item => {
-                    if(!item.isEvent) return;
+                this.forEachElementInHitOrder(item => {
+                    if(!item.isEvent||vis) return;
                     const mousePos = CoorUtils.getMousePos(e,item);
                     if(EventUtils.runMouseClick(mousePos,item)){
                         vis = true;  //标记选中图形
@@ -346,7 +400,7 @@ export class Stage {
                     }  
                 });
 
-                this.elementMap.forEach(item => {
+                this.forEachElementInHitOrder(item => {
                     if(!item.isEvent||vis) return;
                     const mousePos = CoorUtils.getMousePos(e,item);
                     if(EventUtils.runMouseDown(mousePos,item)){
@@ -387,7 +441,7 @@ export class Stage {
                             EventUtils.runDragMove(mousePos,item);
                         }
                     });
-                    this.elementMap.forEach(item => {
+                    this.forEachElementInHitOrder(item => {
                         if(!item.isEvent||vis) return;
                         if(item.isMouseDown){
                             vis = true;
@@ -397,7 +451,7 @@ export class Stage {
                     });
                     mouseContext.runMouseMove(CoorUtils.getMousePos(e));
                 }else if(e.buttons == 0){  //无任何键按下
-                    this.elementMap.forEach(item=>{
+                    this.forEachElementInHitOrder(item=>{
                         if(!item.isEvent) return;
                         const mousePos = CoorUtils.getMousePos(e,item);
                         if(EventUtils.runMouseMove(mousePos,item)){
@@ -436,7 +490,7 @@ export class Stage {
 
                 if(e.button) return;
                 let vis = false;
-                this.elementMap.forEach(item => {
+                this.forEachElementInHitOrder(item => {
                     if(!item.isEvent||vis) return;
                     const mousePos = CoorUtils.getMousePos(e,item);
                     if(EventUtils.runMouseUp(mousePos,item)){
@@ -470,7 +524,7 @@ export class Stage {
             handler: (e?: IEventInfo) => {
                 if (!(e instanceof MouseEvent)) return;
 
-                this.elementMap.forEach(item => {
+                this.forEachElementInDrawOrder(item => {
                     if(!item.isEvent) return;
                     const mousePos = CoorUtils.getMousePos(e,item);
                     EventUtils.runMouseLeave(mousePos,item);
@@ -489,7 +543,7 @@ export class Stage {
 
                 if(e.button) return;
                 let vis = false;
-                this.elementMap.forEach(item => {
+                this.forEachElementInHitOrder(item => {
                     if(!item.isEvent||vis) return;
                     const mousePos = CoorUtils.getMousePos(e,item);
                     if(EventUtils.runDblclick(mousePos,item)){
@@ -509,7 +563,7 @@ export class Stage {
         const memento = mementoAdim.lastMemento();
         console.log("撤回到：",memento);
         if(!memento) return;
-        this.elementMap = memento.getGraphicsMap();
+        this.restoreFromMemento(memento);
 
         this.assistMap.clear();  
         this.refresh();  
@@ -518,7 +572,7 @@ export class Stage {
         const memento = mementoAdim.nextMemento();
         console.log("还原到：",memento);
         if(!memento) return;
-        this.elementMap = memento.getGraphicsMap();
+        this.restoreFromMemento(memento);
 
         this.assistMap.clear();  
         this.refresh();  
@@ -538,7 +592,7 @@ export class Stage {
         }
     }
     selectAll(): void{  //全选：Ctrl+A
-        this.elementMap.forEach(item=>{
+        this.getElementsInDrawOrder().forEach(item=>{
             this.addSelect(item);
         });
         if(this.selected) this.add(this.selected,false);
@@ -611,7 +665,7 @@ export class Stage {
             const memento: ISnapshoot = JSON.parse(jsonStr);
             Global.setViewport(memento.viewport);
             const initMemento = new StateMemento(memento.elementSnapshoots,MementoTitle.Import);
-            this.elementMap = initMemento.getGraphicsMap();
+            this.restoreFromMemento(initMemento);
             mementoAdim.addMemento(initMemento);  //添加初始状态备忘录
             this.refresh();
         }catch(err){
@@ -629,6 +683,8 @@ export class Stage {
     addSelect(element: IElement): void {  //添加选择
         if(!this.selected) this.selected = element;
         else{
+            const previousOrder = [...this.elementOrder];
+            const layerIndex = this.getMaxLayerIndex([this.selected, element]);
             if("addChild" in this.selected&&!this.selected.isStable){  //是松容器
                 this.selected.addChild(element);
             }else{  
@@ -642,24 +698,35 @@ export class Stage {
                 }
             }
             this.remove(element,false);
+            if(this.selected){
+                const insertIndex = this.getLayerInsertIndex(previousOrder, layerIndex, this.selected.id);
+                if(this.elementMap.has(this.selected.id)){
+                    this.insertElementOrder(this.selected.id, insertIndex);
+                }else{
+                    this.add(this.selected,false,insertIndex);
+                }
+            }
         }
         this.selected.setController();
     }
     removeSelect(): void {  //移除选择
         if(this.selected){
             if("spilt" in this.selected&&!this.selected.isStable){
+                const previousOrder = [...this.elementOrder];
+                const layerIndex = this.elementOrder.indexOf(this.selected.id);
                 const children = this.selected.spilt();
-                children.forEach(child => {
-                    this.add(child,false);
-                });
                 this.remove(this.selected,false);
+                const insertIndex = this.getLayerInsertIndex(previousOrder, layerIndex);
+                children.forEach((child, index) => {
+                    this.add(child,false,insertIndex === undefined ? undefined : insertIndex + index);
+                });
             }
             this.selected.removeController();
             this.selected = null;  //清空选中项
         } 
     }
     addMemento(title: string = MementoTitle.Empty){
-        mementoAdim.addMemento(new StateMemento(this.elementMap,title));  //将当前画布快照状态添加进备忘录
+        mementoAdim.addMemento(new StateMemento(this.getElementsInDrawOrder(),title));  //将当前画布快照状态添加进备忘录
     }
 
     /**
@@ -669,11 +736,12 @@ export class Stage {
      * @param graphics 要添加的图形元素
      * @param isStrict 是否严格模式，默认true
      */
-    add(element: IElement, isStrict: boolean = true): void { 
+    add(element: IElement, isStrict: boolean = true, orderIndex?: number): void { 
         if(this.elementMap.has(element.id)){
             if(isStrict) throw Error(`id为：${element.id}的图形已存在`);
         }else{
             this.elementMap.set(element.id,element);
+            this.insertElementOrder(element.id,orderIndex);
             if(isStrict) this.addMemento(MementoTitle.Insert);  //添加备忘录
         }
     }
@@ -700,6 +768,7 @@ export class Stage {
      */
     remove(graphics: IElement, isStrict: boolean = true): void {
         this.elementMap.delete(graphics.id);
+        this.removeElementOrder(graphics.id);
         if(isStrict) this.addMemento(MementoTitle.Delete);  //添加备忘录
     }
 
@@ -710,6 +779,7 @@ export class Stage {
      */
     removeById(id: string, isStrict: boolean = true): void {
         this.elementMap.delete(id);
+        this.removeElementOrder(id);
         if(isStrict) this.addMemento(MementoTitle.Delete);  //添加备忘录
     }
     removeAssist(assist: IElement): void {
@@ -720,6 +790,7 @@ export class Stage {
     }
     removeAll(): void {  //删除所有图形
         this.elementMap.clear();
+        this.elementOrder = [];
     }
     removeAllAssist(): void {  //删除所有辅助图形
         this.assistMap.clear();
@@ -735,7 +806,7 @@ export class Stage {
      */
     drawAll(backgroundConfig: IBackgroundConfig = this.backgroundConfig): void {
         DrawUtils.drawStageBackgroud(backgroundConfig);  //绘制舞台背景
-        DrawUtils.drawAll(this.elementMap);
+        DrawUtils.drawAll(this.getElementsInDrawOrder());
     }
     fixedStage(imgConfig: IExportImageConfig){  //根据导出配置固定舞台
         this.clear();  
@@ -750,7 +821,7 @@ export class Stage {
         if(imgConfig.isSelectedOnly&&this.selected){
             this.selected.draw();
         }else{
-            DrawUtils.drawAll(this.elementMap);
+            DrawUtils.drawAll(this.getElementsInDrawOrder());
         }
     }
     refresh(): void {  //帧刷新画布
@@ -759,6 +830,7 @@ export class Stage {
     }
     destroy(): void {  //销毁画布
         this.elementMap.clear();  //清空图形集合
+        this.elementOrder = [];  //清空图层顺序
         this.assistMap.clear();  //清空辅助图形集合
         this.selected = null;
         

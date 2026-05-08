@@ -1,18 +1,23 @@
 {
-  "$schema": "https://json.schemastore.org/package.json",
-  "name": "rainbow",
-  "version": "1.1.2",
+  "name": "@gezishan34/rainbow",
+  "version": "1.0.0",
   "description": "Canvas 图形绘制工具库，支持自定义图形、鼠标交互...",
+  "keywords": ["canvas", "图形绘制", "交互", "TypeScript"],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "module": "dist/index.js",
-  "author": "gezishan: 3508474917@qq.com",
+  "author": "gezishan<3508474917@qq.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gezishan34/rainbow.git"
+  },
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "jest"
   },
-  "devDependencies": {
-    "copyfiles": "^2.4.1"
-  }
+  "license": "MIT"
 }

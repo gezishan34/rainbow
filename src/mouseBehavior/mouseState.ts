@@ -137,7 +137,7 @@ export class SelectState extends State{  //选择状态
             this.graphics.updateMeasure();
             const {x:x1,y:y1} = this.graphics.leftTop;
             const {x:x2,y:y2} = this.graphics.rightBottom;
-            stage.elementMap.forEach(item=>{
+            stage.forEachElementInDrawOrder(item=>{
                 if(item === this.graphics) return;
                 if(item.leftTop.x>=x1&&item.rightBottom.x<=x2&&item.leftTop.y>=y1&&item.rightBottom.y<=y2){
                     item.setShowController();
@@ -154,7 +154,7 @@ export class SelectState extends State{  //选择状态
             const {x:x1,y:y1} = this.graphics.leftTop;
             const {x:x2,y:y2} = this.graphics.rightBottom;
             
-            stage.elementMap.forEach(item=>{
+            stage.forEachElementInDrawOrder(item=>{
                 if(item === this.graphics) return;
                 if(item.leftTop.x>=x1&&item.rightBottom.x<=x2&&item.leftTop.y>=y1&&item.rightBottom.y<=y2){
                     stage?.addSelect(item);
@@ -172,7 +172,7 @@ export class SelectState extends State{  //选择状态
             const {x:x1,y:y1} = this.graphics.leftTop;
             const {x:x2,y:y2} = this.graphics.rightBottom;
             
-            stage.elementMap.forEach(item=>{
+            stage.forEachElementInDrawOrder(item=>{
                 if(item === this.graphics) return;
                 if(item.leftTop.x>=x1&&item.rightBottom.x<=x2&&item.leftTop.y>=y1&&item.rightBottom.y<=y2){
                     stage?.addSelect(item);

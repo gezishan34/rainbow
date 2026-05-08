@@ -164,11 +164,13 @@ export class StateMemento {
     static toSnapshoots(elements: IElement[]): IElementSnapshoot[] {  //将图元数组转换为完整快照
         return elements.map(item => this.toSnapshoot(item));
     }
-    constructor(elements: Map<string,IGraphics> | IElementSnapshoot[],title:string = "无描述"){
+    constructor(elements: Map<string,IElement> | IElement[] | IElementSnapshoot[],title:string = "无描述"){
         if(elements instanceof Map){
             this.elementSnapshoots = StateMemento.toSnapshoots(Array.from(elements.values()));
+        }else if(elements[0] && "config" in elements[0]){
+            this.elementSnapshoots = elements as IElementSnapshoot[];
         }else{
-            this.elementSnapshoots = elements;
+            this.elementSnapshoots = StateMemento.toSnapshoots(elements as IElement[]);
         }
         this.title = title;
     }
@@ -187,10 +189,17 @@ export class StateMemento {
     
     //获取图形容器
     getGraphicsMap(): Map<string,IGraphics>{
+        return this.getGraphicsData().elementMap;
+    }
+
+    //获取图形容器与图层顺序，快照数组顺序即绘制顺序
+    getGraphicsData(): {elementMap: Map<string,IGraphics>, elementOrder: string[]}{
         const map = new Map<string,IGraphics>();
+        const order: string[] = [];
         StateMemento.parseSnapshoots(this.elementSnapshoots).forEach(item=>{
             map.set(item.id,item);
+            order.push(item.id);
         });
-        return map;
+        return {elementMap: map, elementOrder: order};
     }
 }
