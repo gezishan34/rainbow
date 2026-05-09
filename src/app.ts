@@ -449,7 +449,7 @@ export class Stage {
             handler: (e?: IEventInfo) => {
                 if (!(e instanceof MouseEvent)) return;
 
-                if(e.buttons == 1){  //鼠标左键按下
+                if(e.buttons === 1){  //鼠标左键按下
                     let vis = false;
                     this.assistMap.forEach(item => {
                         if(!item.isEvent||vis) return;
@@ -468,7 +468,7 @@ export class Stage {
                         }
                     });
                     mouseContext.runMouseMove(CoorUtils.getMousePos(e));
-                }else if(e.buttons == 0){  //无任何键按下
+                }else if(e.buttons === 0){  //无任何键按下
                     this.forEachElementInHitOrder(item=>{
                         if(!item.isEvent) return;
                         const mousePos = CoorUtils.getMousePos(e,item);
@@ -709,7 +709,7 @@ export class Stage {
     }
 
     cutSelect(element: IElement): void {  //切换选择
-        if(this.selected!==element){
+        if(this.selected !== element){
             this.removeSelect();  //先移除当前选择
             this.selected = element;
             this.selected.setController();
@@ -918,7 +918,7 @@ export class Stage {
         this.clear();
         this.drawAll();
     }
-    
+
     destroy(): void {  //销毁画布
         this.elementMap.clear();  //清空图形集合
         this.elementOrder = [];  //清空图层顺序
