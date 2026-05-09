@@ -1,7 +1,8 @@
 import type { GenericObject } from "./type.js"
 //通用的工具类,任何场景都可使用，不依赖与其他业务模块，只依赖一个类型的别名模块
 
-class ObjectUtils{
+//对象工具
+export class ObjectUtils{
     //使用source中的属性修改target中存在的相同的属性
     /**
      * 用源对象上与目标对象的「共有属性的值」修改目标对象的「对应属性」
@@ -146,7 +147,7 @@ class ObjectUtils{
 }
 
 //ID生成器
-class IDGenerator {
+export class IDGenerator {
   private static counters: Map<string, number> = new Map();
 
   static next(prefix: string = 'id'): string {
@@ -164,4 +165,20 @@ class IDGenerator {
   }
 }
 
-export { ObjectUtils,IDGenerator }
+//日志工具
+export class Log {
+    static env: "dev"|"prod" = "dev";
+
+    static info(msg: string): void{
+        if(Log.env === "dev") console.log(msg);
+    }
+
+    static warn(msg: string): void{
+        if(Log.env === "dev") console.warn(msg);
+    }
+
+    static error(msg: string|Error): void{
+        if(Log.env === "dev") console.error(msg);
+    }
+    
+}

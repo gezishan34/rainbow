@@ -2,7 +2,7 @@ import Global from "./global.js";
 import type { IBackgroundConfig, IContainer, ICoor, IElement, IEventInfo, IEventListener, IExportImageConfig, IExportOption, IGlobalConfig, ISnapshoot } from "./check/interface.js";
 import { EventType, KeyType } from "./enum/event.js";
 import { DrawUtils } from "./utils/business.js";
-import { AssistLineType, DefZoom, MouseDrawType } from "./enum/draw.js";
+import { DefZoom, MouseDrawType } from "./enum/draw.js";
 import { mouseContext } from "./mouseBehavior/mouseContext.js";
 import { CoorUtils, EventUtils, ViewUtils } from "./utils/business.js";
 import { MementoTitle, StateMemento } from "./memento/StateMemento.js";
@@ -10,6 +10,7 @@ import { mementoAdim } from "./memento/StateCaretaker.js";
 import { Editor } from "./utils/editor.js";
 import { clipboard } from "./memento/clipboard.js";
 import { Container } from "./graphics/container.js";
+import { Log } from "./independent/utils.js";
 
 export let stage: Stage | null = null;
 
@@ -72,6 +73,7 @@ export class Stage {
         //设置世界坐标
         CoorUtils.setWorldTransform();  //设置当前世界坐标系
     }
+
     static init(config: IGlobalConfig): Stage|null {
         try{
             Global.init(config);
@@ -94,6 +96,7 @@ export class Stage {
         }
         
     }
+
     /**
      * 从备忘录中恢复图元表和图层顺序
      * @param memento 备忘录
@@ -103,6 +106,7 @@ export class Stage {
         this.elementMap = elementMap;
         this.elementOrder = elementOrder;  
     }
+
     /**
      * 按图层绘制顺序获取图元，数组前端先绘制
      * @returns
@@ -110,18 +114,23 @@ export class Stage {
     getElementsInDrawOrder(): IElement[] {
         return this.elementOrder.map(id => this.elementMap.get(id)) as IElement[];
     }
+
     getElementsInHitOrder(): IElement[] {  //按命中检测顺序获取图元，顶层图元优先响应事件
         return [...this.getElementsInDrawOrder()].reverse();
     }
+
     forEachElementInDrawOrder(callback: (element: IElement) => void): void {  //按绘制顺序遍历图元
         this.getElementsInDrawOrder().forEach(callback);
     }
+
     forEachElementInHitOrder(callback: (element: IElement) => void): void {  //按事件命中顺序遍历图元
         this.getElementsInHitOrder().forEach(callback);
     }
+
     private removeElementOrder(id: string): void {  //从图层顺序中移除指定图元id
         this.elementOrder = this.elementOrder.filter(item => item !== id);
     }
+
     private insertElementOrder(id: string, index?: number): void {  //将图元id插入指定层级，默认置于顶层
         this.removeElementOrder(id);
         if(index === undefined || index < 0 || index >= this.elementOrder.length){
@@ -130,6 +139,7 @@ export class Stage {
         }
         this.elementOrder.splice(index, 0, id);
     }
+
     private getMaxLayerIndex(elements: IElement[]): number | undefined {  //获取一组图元中最高的现有层级索引
         let maxIndex = -1;
         elements.forEach(element => {
@@ -138,6 +148,7 @@ export class Stage {
         });
         return maxIndex === -1 ? undefined : maxIndex;
     }
+
     private getLayerInsertIndex(previousOrder: string[], layerIndex?: number, insertedId?: string): number | undefined {  //根据删除前顺序换算当前可用的插入索引
         if(layerIndex === undefined) return undefined;
         return this.elementOrder.filter(id => {
@@ -146,12 +157,14 @@ export class Stage {
             return previousIndex !== -1 && previousIndex <= layerIndex;
         }).length;
     }
+
     private cancelDefaultEvent(){
         Global.canvas.addEventListener(EventType.Wheel, (e) => e.preventDefault()); // 取消滚动默认行为
         Global.canvas.addEventListener(EventType.MouseDown, (e) => e.preventDefault()); // 取消鼠标按下默认行为
         Global.canvas.addEventListener(EventType.MouseMove, (e) => e.preventDefault()); // 取消鼠标移动默认行为
         Global.canvas.addEventListener(EventType.Contextmenu, (e) => e.preventDefault()); // 取消右键默认行为
     }
+
     private setResize(){  //注册窗口变化事件
         this.eventHandlers.push({
             target: window, 
@@ -162,6 +175,7 @@ export class Stage {
             }
         });
     }
+
     private setKeyEvent(): void {  //注册键盘事件
         let isSpaceDown = false;  //是否按下空格
         let isADown = false;  //是否按下A键
@@ -326,6 +340,7 @@ export class Stage {
             }
         });
     }
+
     private setMouseWheel(): void {  //注册画布的鼠标滚动事件
         this.eventHandlers.push({
             target: Global.canvas,
@@ -350,6 +365,7 @@ export class Stage {
             }
         });
     }
+
     private setEventClick(): void {  //注册画布的鼠标点击事件
         this.eventHandlers.push({
             target: Global.canvas,
@@ -376,6 +392,7 @@ export class Stage {
             }
         });
     }
+
     private setEventMouseDown(): void {  //注册画布的鼠标按下事件
         this.eventHandlers.push({
             target: Global.canvas,
@@ -424,6 +441,7 @@ export class Stage {
             }
         });
     }
+
     private setEventMouseMove(): void {  //注册画布的鼠标移动事件
         this.eventHandlers.push({
             target: document,
@@ -481,6 +499,7 @@ export class Stage {
             
         });
     }
+
     private setEventMouseUp(): void {  //注册画布的鼠标松开事件
         this.eventHandlers.push({
             target: document,
@@ -517,6 +536,7 @@ export class Stage {
             }
         });
     }
+
     private setEventMouseLeave(): void {  //注册画布的鼠标移开事件
         this.eventHandlers.push({
             target: document,
@@ -534,6 +554,7 @@ export class Stage {
             }
         });
     }
+
     private setEventDblclick(): void {  //注册画布的双击事件
         this.eventHandlers.push({
             target: Global.canvas,
@@ -553,30 +574,35 @@ export class Stage {
             }
         });
     }
+
     setSaveCallback(callback: (saveStr: string) => void): void {  //设置保存回调函数
         this.saveCallback = callback;
     }
+
     setExportCallback(callback: (blob: Blob|null) => void): void {  //设置导出回调函数
         this.exportCallback = callback;
     }
+
     last(): void{  //上一步：Ctrl+Z
         const memento = mementoAdim.lastMemento();
-        console.log("撤回到：",memento);
+        Log.info(`撤回到：${memento}`);
         if(!memento) return;
         this.restoreFromMemento(memento);
 
         this.assistMap.clear();  
         this.refresh();  
     }
+
     next(): void{  //下一步：Ctrl+Y
         const memento = mementoAdim.nextMemento();
-        console.log("还原到：",memento);
+        Log.info(`还原到：${memento}`);
         if(!memento) return;
         this.restoreFromMemento(memento);
 
         this.assistMap.clear();  
         this.refresh();  
     }
+
     group(): void{  //组合：Ctrl+G
         if(this.selected&&'isStable' in this.selected){
             this.selected.isStable = true;
@@ -584,6 +610,7 @@ export class Stage {
             this.addMemento(MementoTitle.Group);  //添加状态备忘录快照——组合
         }
     }
+
     unGroup(): void{  //解除组合：Ctrl+Shift+G
         if(this.selected&&'isStable' in this.selected){
             this.selected.isStable = false;
@@ -591,12 +618,14 @@ export class Stage {
             this.addMemento(MementoTitle.UnGroup);  //添加状态备忘录快照——取消组合
         }
     }
+
     selectAll(): void{  //全选：Ctrl+A
         this.getElementsInDrawOrder().forEach(item=>{
             this.addSelect(item);
         });
         if(this.selected) this.add(this.selected,false);
     }
+
     /**
      * 保存/获取当前画布状态
      * @param isCallBack 是否执行保存事件的回调
@@ -608,11 +637,13 @@ export class Stage {
         if(isCallBack&&this.saveCallback) this.saveCallback(saveStr);  //执行保存事件的回调
         return saveStr;
     }
+
     copy(): void {  //复制选中图形：Ctrl+C
         if(this.selected){
             clipboard.set(this.selected);
         }
     }
+
     shear(): void {  //剪切选中图形：Ctrl+X
         if(this.selected){
             clipboard.set(this.selected);
@@ -620,6 +651,7 @@ export class Stage {
             this.selected = null;
         }
     }
+
     paste(): void {  //粘贴剪切板中的图形：Ctrl+V
         const data = clipboard.paste();
         if(data){
@@ -627,16 +659,19 @@ export class Stage {
             this.cutSelect(data);
         }
     }
+
     delete(): void {  //删除选中图形：Backspace/Delete
         if(this.selected){
             this.remove(this.selected);
             this.selected = null;
         }
     }
+
     reset(): void {  //清空画布：Ctrl+L
         this.removeAll();
         this.refresh();
     }
+
     exportFile(option: IExportOption): void {  //执行导出文件
         if(this.exportCallback){
             const {
@@ -680,6 +715,7 @@ export class Stage {
             this.selected.setController();
         }
     }
+
     addSelect(element: IElement): void {  //添加选择
         if(!this.selected) this.selected = element;
         else{
@@ -709,6 +745,7 @@ export class Stage {
         }
         this.selected.setController();
     }
+
     removeSelect(): void {  //移除选择
         if(this.selected){
             if("spilt" in this.selected&&!this.selected.isStable){
@@ -725,6 +762,7 @@ export class Stage {
             this.selected = null;  //清空选中项
         } 
     }
+
     addMemento(title: string = MementoTitle.Empty){
         mementoAdim.addMemento(new StateMemento(this.getElementsInDrawOrder(),title));  //将当前画布快照状态添加进备忘录
     }
@@ -776,7 +814,7 @@ export class Stage {
 
     /**
      * 将指定图形元素添加进显示图形集合，可指定是否严格模式\
-     * 严格模式：若图形元素id是否已存在，若存在则抛出错误；若图形id不存在，则添加成功且创建快照\
+     * 严格模式：图形元素id是否已存在，若存在则抛出错误；若图形id不存在，则添加成功且创建快照\
      * 非严格模式：若id已存在，不进行任何操作；若id不存在，则添加成功但不创建快照
      * @param graphics 要添加的图形元素
      * @param isStrict 是否严格模式，默认true
@@ -827,19 +865,24 @@ export class Stage {
         this.removeElementOrder(id);
         if(isStrict) this.addMemento(MementoTitle.Delete);  //添加备忘录
     }
+
     removeAssist(assist: IElement): void {
         this.assistMap.delete(assist.id);
     }
+
     removeAssistById(id: string): void {
         this.assistMap.delete(id);
     }
+
     removeAll(): void {  //删除所有图形
         this.elementMap.clear();
         this.elementOrder = [];
     }
+
     removeAllAssist(): void {  //删除所有辅助图形
         this.assistMap.clear();
     }
+
     clear(): void {  //清空画布   
         DrawUtils.clear();
     }
@@ -853,6 +896,7 @@ export class Stage {
         DrawUtils.drawStageBackgroud(backgroundConfig);  //绘制舞台背景
         DrawUtils.drawAll(this.getElementsInDrawOrder());
     }
+
     fixedStage(imgConfig: IExportImageConfig){  //根据导出配置固定舞台
         this.clear();  
         const bgConfig: IBackgroundConfig = {
@@ -869,10 +913,12 @@ export class Stage {
             DrawUtils.drawAll(this.getElementsInDrawOrder());
         }
     }
+
     refresh(): void {  //帧刷新画布
         this.clear();
         this.drawAll();
     }
+    
     destroy(): void {  //销毁画布
         this.elementMap.clear();  //清空图形集合
         this.elementOrder = [];  //清空图层顺序
