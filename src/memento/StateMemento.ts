@@ -17,6 +17,7 @@ export enum MementoTitle {
     Scaling = "缩放图形",
     Rotate = "旋转图形",
     Import = "导入项目",
+    LayerOrder = "调整图层",
 }
 
 //备忘录

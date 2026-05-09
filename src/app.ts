@@ -1,5 +1,5 @@
 import Global from "./global.js";
-import type { IBackgroundConfig, ICoor, IElement, IEventInfo, IEventListener, IExportImageConfig, IExportOption, IGlobalConfig, ISnapshoot } from "./check/interface.js";
+import type { IBackgroundConfig, IContainer, ICoor, IElement, IEventInfo, IEventListener, IExportImageConfig, IExportOption, IGlobalConfig, ISnapshoot } from "./check/interface.js";
 import { EventType, KeyType } from "./enum/event.js";
 import { DrawUtils } from "./utils/business.js";
 import { AssistLineType, DefZoom, MouseDrawType } from "./enum/draw.js";
@@ -727,6 +727,51 @@ export class Stage {
     }
     addMemento(title: string = MementoTitle.Empty){
         mementoAdim.addMemento(new StateMemento(this.getElementsInDrawOrder(),title));  //将当前画布快照状态添加进备忘录
+    }
+
+    /**
+     * 设置顶层图元的绘制顺序（elementOrder：数组前端为底层，末端为顶层）
+     * @param newOrder 与当前顶层 id 集合一致的新顺序
+     */
+    setRootElementOrder(newOrder: string[]): void {
+        const expected = new Set(this.elementOrder);
+        if(newOrder.length !== expected.size){
+            return;
+        }
+        for(const id of newOrder){
+            if(!expected.has(id)){
+                return;
+            }
+        }
+        this.elementOrder = [...newOrder];
+        this.addMemento(MementoTitle.LayerOrder);
+        this.refresh();
+    }
+
+    /**
+     * 设置组合容器内子图元的绘制顺序（children：数组前端为底层，末端为顶层）
+     */
+    setContainerChildrenOrder(containerId: string, orderedChildIds: string[]): void {
+        const parent = this.elementMap.get(containerId) as IContainer | undefined;
+        if(!parent?.children){
+            return;
+        }
+        const children = parent.children;
+        if(orderedChildIds.length !== children.length){
+            return;
+        }
+        const byId = new Map(children.map(c => [c.id, c] as const));
+        for(const id of orderedChildIds){
+            if(!byId.has(id)){
+                return;
+            }
+        }
+        children.length = 0;
+        for(const id of orderedChildIds){
+            children.push(byId.get(id)!);
+        }
+        this.addMemento(MementoTitle.LayerOrder);
+        this.refresh();
     }
 
     /**
