@@ -512,6 +512,86 @@ export class Stage {
         this.refresh();
     }
 
+    /**
+     * 选中图元在当前父级中的兄弟列表（底层→顶层）及自身下标；不在画布或未选中时为 null。
+     */
+    private getSelectedLayerContext(): { parentId: string | null; siblings: string[]; index: number } | null {
+        const sel = this.selected
+        if (!sel) return null
+        const id = sel.id
+        const rootIdx = this.elementOrder.indexOf(id)
+        if (rootIdx !== -1) {
+            return { parentId: null, siblings: [...this.elementOrder], index: rootIdx }
+        }
+        for (const el of this.elementMap.values()) {
+            if ('children' in el && el.children?.length) {
+                const idx = el.children.findIndex((c) => c.id === id)
+                if (idx !== -1) {
+                    return { parentId: el.id, siblings: el.children.map((c) => c.id), index: idx }
+                }
+            }
+        }
+        return null
+    }
+
+    private applySiblingOrder(parentId: string | null, siblings: string[]): void {
+        if (parentId === null) {
+            this.setRootElementOrder(siblings)
+        } else {
+            this.setContainerChildrenOrder(parentId, siblings)
+        }
+    }
+
+    /** 置于顶层：Ctrl+] */
+    bringToFront(): void {
+        const ctx = this.getSelectedLayerContext()
+        if (!ctx || ctx.siblings.length <= 1) return
+        const id = ctx.siblings[ctx.index]
+        if (id === undefined) return
+        const next = ctx.siblings.filter((x) => x !== id)
+        next.push(id)
+        this.applySiblingOrder(ctx.parentId, next)
+    }
+
+    /** 置于底层：Ctrl+[ */
+    sendToBack(): void {
+        const ctx = this.getSelectedLayerContext()
+        if (!ctx || ctx.siblings.length <= 1) return
+        const id = ctx.siblings[ctx.index]
+        if (id === undefined) return
+        const next = ctx.siblings.filter((x) => x !== id)
+        next.unshift(id)
+        this.applySiblingOrder(ctx.parentId, next)
+    }
+
+    /** 上移一层（向顶层）：Ctrl+Shift+] */
+    bringForward(): void {
+        const ctx = this.getSelectedLayerContext()
+        if (!ctx || ctx.index >= ctx.siblings.length - 1) return
+        const next = [...ctx.siblings]
+        const i = ctx.index
+        const a = next[i]
+        const b = next[i + 1]
+        if (a === undefined || b === undefined) return
+        next[i] = b
+        next[i + 1] = a
+        this.applySiblingOrder(ctx.parentId, next)
+    }
+
+    /** 下移一层（向底层）：Ctrl+Shift+[ */
+    sendBackward(): void {
+        const ctx = this.getSelectedLayerContext()
+        if (!ctx || ctx.index <= 0) return
+        const next = [...ctx.siblings]
+        const i = ctx.index
+        const a = next[i - 1]
+        const b = next[i]
+        if (a === undefined || b === undefined) return
+        next[i - 1] = b
+        next[i] = a
+        this.applySiblingOrder(ctx.parentId, next)
+    }
+
     exportFile(option: IExportOption): void {  //执行导出文件
         if(this.exportCallback){
             const {

@@ -60,6 +60,17 @@ export class CommandController {
             return
         }
 
+        /* 图层顺序：使用 physical key（BracketLeft/Right），避免 Shift+] 产生 `}` 无法匹配 */
+        if (this.isMod(e) && (e.code === 'BracketRight' || e.code === 'BracketLeft')) {
+            e.preventDefault()
+            if (e.code === 'BracketRight') {
+                this.bus.dispatch(e.shiftKey ? CommandId.BringForward : CommandId.BringToFront)
+            } else {
+                this.bus.dispatch(e.shiftKey ? CommandId.SendBackward : CommandId.SendToBack)
+            }
+            return
+        }
+
         switch (e.key) {
             case KeyType.Backspace:
             case KeyType.Delete: {

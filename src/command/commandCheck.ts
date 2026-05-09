@@ -47,6 +47,18 @@ export enum CommandId {
 
     /** 清空画布：Ctrl+L */
     Reset = 'reset',
+
+    /** 置于顶层：Ctrl+] */
+    BringToFront = 'bringToFront',
+
+    /** 置于底层：Ctrl+[ */
+    SendToBack = 'sendToBack',
+
+    /** 上移一层：Ctrl+Shift+] */
+    BringForward = 'bringForward',
+
+    /** 下移一层：Ctrl+Shift+[ */
+    SendBackward = 'sendBackward',
 }
 
 /**
@@ -74,6 +86,19 @@ export interface ICommandTarget {
     save(): void
 
     reset(): void
+
+    /** 将选中图元置于当前父级内的最顶层 */
+    bringToFront(): void
+
+    /** 将选中图元置于当前父级内的最底层 */
+    sendToBack(): void
+
+    /** 与上一层（更靠近顶层）交换顺序 */
+    bringForward(): void
+
+    /** 与下一层（更靠近底层）交换顺序 */
+    sendBackward(): void
+
     refresh(): void
 
     /**

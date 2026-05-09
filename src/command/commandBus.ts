@@ -1,5 +1,6 @@
 import { DefZoom } from '../enum/draw.js'
 import { type ICommandTarget, CommandId } from './commandCheck.js'
+import { registerLayerOrderCommands } from './layerOrderCommands.js'
 
 /**
  * 命令总线
@@ -91,5 +92,7 @@ export class CommandBus {
         this.register(CommandId.NudgeDown, nudge(0, DefZoom.keyMoveSpeed))
         this.register(CommandId.NudgeLeft, nudge(-DefZoom.keyMoveSpeed, 0))
         this.register(CommandId.NudgeRight, nudge(DefZoom.keyMoveSpeed, 0))
+
+        registerLayerOrderCommands(this, s)
     }
 }
