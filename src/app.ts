@@ -1,8 +1,8 @@
 import Global from "./global.js";
 import type { IBackgroundConfig, IContainer, ICoor, IElement, IEventInfo, IEventListener, IExportImageConfig, IExportOption, IGlobalConfig, ISnapshoot } from "./check/interface.js";
-import { EventType, KeyType } from "./enum/event.js";
+import { EventType } from "./enum/event.js";
 import { DrawUtils } from "./utils/business.js";
-import { DefZoom, MouseDrawType } from "./enum/draw.js";
+import { DefZoom } from "./enum/draw.js";
 import { mouseContext } from "./mouseBehavior/mouseContext.js";
 import { CoorUtils, EventUtils, ViewUtils } from "./utils/business.js";
 import { MementoTitle, StateMemento } from "./memento/StateMemento.js";
@@ -11,10 +11,13 @@ import { Editor } from "./utils/editor.js";
 import { clipboard } from "./memento/clipboard.js";
 import { Container } from "./graphics/container.js";
 import { Log } from "./independent/utils.js";
+import { CommandController } from "./command/keyboardController.js";
 
 export let stage: Stage | null = null;
 
-//舞台类，单例模式
+/**
+ * 舞台类（单例由 `Stage.init` 创建）。
+ */
 export class Stage {
     elementMap: Map<string,IElement>;  //图形对象Map，key为图形id，value为图形对象
     elementOrder: string[];  //图层顺序，数组前端为底层，数组末端为顶层
@@ -24,6 +27,7 @@ export class Stage {
     isEditing: boolean;  //是否正在编辑状态
     recordPoint: ICoor = {x:0,y:0};  //记录鼠标按下位置
     eventHandlers: IEventListener[] = [];  //存储所有事件处理函数，用于销毁时移除事件监听
+    commandController: CommandController;  //命令控制器
     private saveCallback: ((saveStr: string) => void)|null = null;  //保存回调函数，初始为null
     private exportCallback: ((blob: Blob|null) => void)|null = null;  //导出回调函数，初始为null
     
@@ -40,8 +44,9 @@ export class Stage {
         //设置窗口变化事件
         this.setResize();
 
-        //设置键盘事件
-        this.setKeyEvent();
+        // 键位 → CommandId → CommandBus → Stage 既有 API；
+        this.commandController = new CommandController(this);
+        this,this.commandController.attach(this.eventHandlers);
 
         //设置鼠标滚动事件
         this.setMouseWheel();
@@ -172,171 +177,6 @@ export class Stage {
             handler: () => {
                 Global.resizeCanvas();
                 this.refresh();
-            }
-        });
-    }
-
-    private setKeyEvent(): void {  //注册键盘事件
-        let isSpaceDown = false;  //是否按下空格
-        let isADown = false;  //是否按下A键
-        let isZDown = false;  //是否按下Z键
-        let isYDown = false;  //是否按下Y键
-        let nowDrawState: MouseDrawType;  //获取当前鼠标绘制状态
-        this.eventHandlers.push({
-            target: window, 
-            type: EventType.KeyDown, 
-            handler: (e?: IEventInfo) => {
-                if (!(e instanceof KeyboardEvent)) return;
-
-                if(this.isEditing) return;  //编辑状态，键盘监听关闭
-                
-                switch(e.key){
-                    case KeyType.Backspace:
-                    case KeyType.Delete:{
-                        this.delete();
-                        break;
-                    }
-                    case KeyType.Up:{
-                        const x = 0;
-                        const y = -DefZoom.keyMoveSpeed;
-                        this.selected?.move({x,y});
-                        break;
-                    }
-                    case KeyType.Down:{
-                        const x = 0;
-                        const y = DefZoom.keyMoveSpeed;
-                        this.selected?.move({x,y});
-                        break;
-                    }
-                    case KeyType.Left:{
-                        const x = -DefZoom.keyMoveSpeed;
-                        const y = 0;
-                        this.selected?.move({x,y});
-                        break;
-                    }
-                    case KeyType.Right:{
-                        const x = DefZoom.keyMoveSpeed;
-                        const y = 0;
-                        this.selected?.move({x,y});
-                        break;
-                    }
-                    case ' ':{
-                        if(!isSpaceDown){  //第一次按下且不处于输入状态
-                            nowDrawState = mouseContext.getStateType();
-                            if(nowDrawState !== MouseDrawType.Drag){
-                                mouseContext.setState(MouseDrawType.Drag);  //鼠标绘制状态设置为拖拽
-                            }
-                            isSpaceDown = true;  //只改变一次，直到空格键松开
-                        }
-                        break;
-                    }
-                    case 'a':{
-                        if(!isADown&&e.ctrlKey){
-                            e.preventDefault();
-                            this.selectAll();
-                            isADown = true;  //只改变一次，直到A键松开
-                        }
-                        break;
-                    }
-                    case 'g':{
-                        if(e.ctrlKey){
-                            e.preventDefault();
-                            this.group();
-                        }
-                        break;
-                    }
-                    case 'G':{
-                        if(e.ctrlKey){
-                            e.preventDefault();
-                            this.unGroup();
-                        }
-                        break;
-                    }
-                    case 'z':{
-                        if(e.ctrlKey&&!isZDown){
-                            // 锁定状态，防止重复执行
-                            isZDown = true;
-                            this.last();
-                        }
-                        break;
-                    }
-                    case 'y':{
-                        if(e.ctrlKey&&!isYDown){
-                            // 锁定状态，防止重复执行
-                            isYDown = true;
-                            this.next();
-                        }
-                        break;
-                    }
-                    case 'c':{
-                        if(e.ctrlKey){
-                            this.copy();
-                        }
-                        break;
-                    }
-                    case 'x':{
-                        if(e.ctrlKey){
-                            this.shear();
-                        }
-                        break;
-                    }
-                    case 'v':{
-                        if(e.ctrlKey){
-                            this.paste();
-                        }
-                        break;
-                    }
-                    case 's':{
-                        if(e.ctrlKey){
-                            e.preventDefault();
-                            this.save();
-                        }
-                        break;
-                    }
-                    case 'l':{
-                        if(e.ctrlKey){
-                            e.preventDefault();
-                            this.reset();
-                        }
-                        break;
-                    }
-                }
-                this.refresh();
-            }
-        });
-
-        this.eventHandlers.push({
-            target: window,
-            type: EventType.KeyUp,
-            handler: (e?: IEventInfo) => {
-                if (!(e instanceof KeyboardEvent)) return;
-
-                switch(e.key){
-                    case ' ':{
-                        mouseContext.setState(nowDrawState);  //鼠标绘制状态设置为之前状态
-                        isSpaceDown = false;
-                        break;
-                    }
-                    case 'a':{
-                        isADown = false;
-                        break;
-                    }
-                    case 'z':{
-                        isZDown = false;
-                        break;
-                    }
-                    case 'y':{
-                        isYDown = false;
-                        break;
-                    }
-                    case KeyType.Up:
-                    case KeyType.Down:
-                    case KeyType.Left:
-                    case KeyType.Right:{
-                        this.addMemento(MementoTitle.Move);
-                        break;
-                    }
-                }
             }
         });
     }
@@ -631,11 +471,11 @@ export class Stage {
      * @param isCallBack 是否执行保存事件的回调
      * @returns 
      */
-    save(isCallBack: boolean = true): string {  //保存：Ctrl+S
+    save(): void {  //保存：Ctrl+S
         const nowMemento = mementoAdim.getNowMemento()?.getGlobalSnapshoots();
         const saveStr: string = nowMemento ? JSON.stringify(nowMemento) : '';
-        if(isCallBack&&this.saveCallback) this.saveCallback(saveStr);  //执行保存事件的回调
-        return saveStr;
+        Log.info(`save字符串：${saveStr}`);
+        if(this.saveCallback) this.saveCallback(saveStr);  //执行保存事件的回调
     }
 
     copy(): void {  //复制选中图形：Ctrl+C
